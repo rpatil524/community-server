@@ -89,11 +89,11 @@ describe('A RegistrationHandler', (): void => {
     });
 
     it('errors when a required WebID is not valid.', async(): Promise<void> => {
-      operation = createPostFormOperation({ email, register, webId: undefined });
+      operation = createPostFormOperation({ email, password, confirmPassword, register, webId: undefined });
       await expect(handler.handle({ operation }))
         .rejects.toThrow('Please enter a valid WebID.');
 
-      operation = createPostFormOperation({ email, register, webId: '' });
+      operation = createPostFormOperation({ email, password, confirmPassword, register, webId: '' });
       await expect(handler.handle({ operation }))
         .rejects.toThrow('Please enter a valid WebID.');
     });
@@ -105,35 +105,21 @@ describe('A RegistrationHandler', (): void => {
     });
 
     it('errors on invalid pod names when required.', async(): Promise<void> => {
-      operation = createPostFormOperation({ email, webId, createPod, podName: undefined });
+      operation = createPostFormOperation({ email, webId, password, confirmPassword, createPod, podName: undefined });
       await expect(handler.handle({ operation }))
         .rejects.toThrow('Please specify a Pod name.');
 
-      operation = createPostFormOperation({ email, webId, createPod, podName: ' ' });
+      operation = createPostFormOperation({ email, webId, password, confirmPassword, createPod, podName: ' ' });
       await expect(handler.handle({ operation }))
         .rejects.toThrow('Please specify a Pod name.');
 
-      operation = createPostFormOperation({ email, webId, createWebId });
+      operation = createPostFormOperation({ email, webId, password, confirmPassword, createWebId });
       await expect(handler.handle({ operation }))
         .rejects.toThrow('Please specify a Pod name.');
-    });
-
-    it('errors when trying to create a WebID without registering or creating a pod.', async(): Promise<void> => {
-      operation = createPostFormOperation({ email, podName, createWebId });
-      await expect(handler.handle({ operation }))
-        .rejects.toThrow('Please enter a password.');
-
-      operation = createPostFormOperation({ email, podName, createWebId, createPod });
-      await expect(handler.handle({ operation }))
-        .rejects.toThrow('Please enter a password.');
-
-      operation = createPostFormOperation({ email, podName, createWebId, createPod, register });
-      await expect(handler.handle({ operation }))
-        .rejects.toThrow('Please enter a password.');
     });
 
     it('errors when no option is chosen.', async(): Promise<void> => {
-      operation = createPostFormOperation({ email, webId });
+      operation = createPostFormOperation({ email, webId, password, confirmPassword });
       await expect(handler.handle({ operation }))
         .rejects.toThrow('Please register for a WebID or create a Pod.');
     });
@@ -157,7 +143,7 @@ describe('A RegistrationHandler', (): void => {
       expect(ownershipValidator.handleSafe).toHaveBeenCalledTimes(1);
       expect(ownershipValidator.handleSafe).toHaveBeenLastCalledWith({ webId });
       expect(accountStore.create).toHaveBeenCalledTimes(1);
-      expect(accountStore.create).toHaveBeenLastCalledWith(email, webId, password);
+      expect(accountStore.create).toHaveBeenLastCalledWith(email, webId, password, { useIdp: true });
       expect(accountStore.verify).toHaveBeenCalledTimes(1);
       expect(accountStore.verify).toHaveBeenLastCalledWith(email);
 
@@ -167,7 +153,7 @@ describe('A RegistrationHandler', (): void => {
     });
 
     it('can create a pod.', async(): Promise<void> => {
-      const params = { email, webId, podName, createPod };
+      const params = { email, webId, password, confirmPassword, podName, createPod };
       operation = createPostFormOperation(params);
       await expect(handler.handle({ operation })).resolves.toEqual({
         details: {
@@ -188,9 +174,10 @@ describe('A RegistrationHandler', (): void => {
       expect(identifierGenerator.generate).toHaveBeenLastCalledWith(podName);
       expect(podManager.createPod).toHaveBeenCalledTimes(1);
       expect(podManager.createPod).toHaveBeenLastCalledWith({ path: `${baseUrl}${podName}/` }, podSettings);
+      expect(accountStore.create).toHaveBeenCalledTimes(1);
+      expect(accountStore.create).toHaveBeenLastCalledWith(email, webId, password, { useIdp: false });
+      expect(accountStore.verify).toHaveBeenCalledTimes(1);
 
-      expect(accountStore.create).toHaveBeenCalledTimes(0);
-      expect(accountStore.verify).toHaveBeenCalledTimes(0);
       expect(accountStore.deleteAccount).toHaveBeenCalledTimes(0);
     });
 
@@ -214,7 +201,7 @@ describe('A RegistrationHandler', (): void => {
       expect(ownershipValidator.handleSafe).toHaveBeenCalledTimes(1);
       expect(ownershipValidator.handleSafe).toHaveBeenLastCalledWith({ webId });
       expect(accountStore.create).toHaveBeenCalledTimes(1);
-      expect(accountStore.create).toHaveBeenLastCalledWith(email, webId, password);
+      expect(accountStore.create).toHaveBeenLastCalledWith(email, webId, password, { useIdp: true });
       expect(identifierGenerator.generate).toHaveBeenCalledTimes(1);
       expect(identifierGenerator.generate).toHaveBeenLastCalledWith(podName);
       expect(podManager.createPod).toHaveBeenCalledTimes(1);
@@ -235,7 +222,7 @@ describe('A RegistrationHandler', (): void => {
       expect(ownershipValidator.handleSafe).toHaveBeenCalledTimes(1);
       expect(ownershipValidator.handleSafe).toHaveBeenLastCalledWith({ webId });
       expect(accountStore.create).toHaveBeenCalledTimes(1);
-      expect(accountStore.create).toHaveBeenLastCalledWith(email, webId, password);
+      expect(accountStore.create).toHaveBeenLastCalledWith(email, webId, password, { useIdp: true });
       expect(identifierGenerator.generate).toHaveBeenCalledTimes(1);
       expect(identifierGenerator.generate).toHaveBeenLastCalledWith(podName);
       expect(podManager.createPod).toHaveBeenCalledTimes(1);
@@ -269,7 +256,7 @@ describe('A RegistrationHandler', (): void => {
       expect(identifierGenerator.generate).toHaveBeenCalledTimes(1);
       expect(identifierGenerator.generate).toHaveBeenLastCalledWith(podName);
       expect(accountStore.create).toHaveBeenCalledTimes(1);
-      expect(accountStore.create).toHaveBeenLastCalledWith(email, generatedWebID, password);
+      expect(accountStore.create).toHaveBeenLastCalledWith(email, generatedWebID, password, { useIdp: true });
       expect(accountStore.verify).toHaveBeenCalledTimes(1);
       expect(accountStore.verify).toHaveBeenLastCalledWith(email);
       expect(podManager.createPod).toHaveBeenCalledTimes(1);
@@ -280,7 +267,7 @@ describe('A RegistrationHandler', (): void => {
     });
 
     it('throws an IdpInteractionError with all data prefilled if something goes wrong.', async(): Promise<void> => {
-      const params = { email, webId, podName, createPod };
+      const params = { email, password, confirmPassword, webId, podName, createPod };
       operation = createPostFormOperation(params);
       (podManager.createPod as jest.Mock).mockRejectedValueOnce(new Error('pod error'));
       const prom = handler.handle({ operation });
@@ -288,7 +275,9 @@ describe('A RegistrationHandler', (): void => {
       await expect(prom).rejects.toThrow(IdpInteractionError);
       // Using the cleaned input for prefilled
       await expect(prom).rejects.toThrow(expect.objectContaining({ prefilled: {
-        ...params,
+        email,
+        webId,
+        podName,
         createWebId: false,
         register: false,
         createPod: true,

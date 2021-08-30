@@ -9,17 +9,18 @@ describe('A LoginHandler', (): void => {
   const webId = 'http://alice.test.com/card#me';
   const email = 'alice@test.email';
   let input: InteractionHandlerInput;
-  let storageAdapter: AccountStore;
+  let accountStore: jest.Mocked<AccountStore>;
   let handler: LoginHandler;
 
   beforeEach(async(): Promise<void> => {
     input = {} as any;
 
-    storageAdapter = {
+    accountStore = {
       authenticate: jest.fn().mockResolvedValue(webId),
+      getSettings: jest.fn().mockResolvedValue({ useIdp: true }),
     } as any;
 
-    handler = new LoginHandler(storageAdapter);
+    handler = new LoginHandler(accountStore);
   });
 
   it('errors on invalid emails.', async(): Promise<void> => {
@@ -46,9 +47,17 @@ describe('A LoginHandler', (): void => {
 
   it('throws an IdpInteractionError if there is a problem.', async(): Promise<void> => {
     input.operation = createPostFormOperation({ email, password: 'password!' });
-    (storageAdapter.authenticate as jest.Mock).mockRejectedValueOnce(new Error('auth failed!'));
+    accountStore.authenticate.mockRejectedValueOnce(new Error('auth failed!'));
     const prom = handler.handle(input);
     await expect(prom).rejects.toThrow('auth failed!');
+    await expect(prom).rejects.toThrow(expect.objectContaining({ prefilled: { email }}));
+  });
+
+  it('throws an error if the account does not have the correct settings.', async(): Promise<void> => {
+    input.operation = createPostFormOperation({ email, password: 'password!' });
+    accountStore.getSettings.mockResolvedValueOnce({ useIdp: false });
+    const prom = handler.handle(input);
+    await expect(prom).rejects.toThrow('This account is not registered for identification');
     await expect(prom).rejects.toThrow(expect.objectContaining({ prefilled: { email }}));
   });
 
@@ -58,7 +67,7 @@ describe('A LoginHandler', (): void => {
       type: 'complete',
       details: { webId, shouldRemember: false },
     });
-    expect(storageAdapter.authenticate).toHaveBeenCalledTimes(1);
-    expect(storageAdapter.authenticate).toHaveBeenLastCalledWith(email, 'password!');
+    expect(accountStore.authenticate).toHaveBeenCalledTimes(1);
+    expect(accountStore.authenticate).toHaveBeenLastCalledWith(email, 'password!');
   });
 });

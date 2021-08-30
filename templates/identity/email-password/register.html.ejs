@@ -98,13 +98,6 @@
         </li>
       </ol>
     </div>
-    <div id="noPasswordForm" class="hidden">
-      <p>
-        Since you will be using your existing WebID setup to access your pod,
-        <br>
-        you do <em>not</em> need to set a password.
-      </p>
-    </div>
   </fieldset>
 
   <p class="actions"><button type="submit" name="submit">Sign up</button></p>
@@ -118,7 +111,7 @@
   [
     'createWebIdOn', 'createWebIdOff', 'createWebIdForm', 'existingWebIdForm', 'webId',
     'createPod', 'createPodForm', 'podName',
-    'register', 'passwordForm', 'noPasswordForm', 'mainForm',
+    'register', 'passwordForm', 'mainForm',
   ].forEach(id => {
     elements[id] = document.getElementById(id);
     elements[id].addEventListener('change', updateUI);
@@ -137,8 +130,6 @@
     setVisibility('createWebIdForm', elements.createWebIdOn.checked);
     setVisibility('existingWebIdForm', elements.createWebIdOff.checked);
     setVisibility('createPodForm', elements.createPod.checked);
-    setVisibility('passwordForm', elements.createWebIdOn.checked || elements.register.checked);
-    setVisibility('noPasswordForm', !isVisible('passwordForm'));
 
     // If child elements have just been activated, focus on them
     if (srcElement?.checked) {

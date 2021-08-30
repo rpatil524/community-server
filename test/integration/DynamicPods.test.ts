@@ -24,7 +24,15 @@ const configs: [string, any][] = [
 // Tests are very similar to subdomain/pod tests. Would be nice if they can be combined
 describe.each(configs)('A dynamic pod server with template config %s', (template, { teardown }): void => {
   let app: App;
-  const settings = { podName: 'alice', webId: 'http://test.com/#alice', email: 'alice@test.email', template, createPod: true };
+  const settings = {
+    podName: 'alice',
+    webId: 'http://test.com/#alice',
+    email: 'alice@test.email',
+    password: 'password',
+    confirmPassword: 'password',
+    template,
+    createPod: true,
+  };
   const podUrl = `${baseUrl}${settings.podName}/`;
 
   beforeAll(async(): Promise<void> => {
@@ -110,10 +118,11 @@ describe.each(configs)('A dynamic pod server with template config %s', (template
   });
 
   it('should not be able to create a pod with the same name.', async(): Promise<void> => {
+    const newSettings = { ...settings, webId: 'http://test.com/#bob', email: 'bob@test.email' };
     const res = await fetch(`${baseUrl}idp/register`, {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
-      body: stringify(settings),
+      body: stringify(newSettings),
     });
     // 200 due to there only being a HTML solution right now that only returns 200
     expect(res.status).toBe(200);

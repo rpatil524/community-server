@@ -29,7 +29,14 @@ const stores: [string, any][] = [
 // Simulating subdomains using the forwarded header so no DNS changes are required
 describe.each(stores)('A subdomain server with %s', (name, { storeConfig, teardown }): void => {
   let app: App;
-  const settings = { podName: 'alice', webId: 'http://test.com/#alice', email: 'alice@test.email', createPod: true };
+  const settings = {
+    podName: 'alice',
+    webId: 'http://test.com/#alice',
+    email: 'alice@test.email',
+    password: 'password',
+    confirmPassword: 'password',
+    createPod: true,
+  };
   const podHost = `alice.localhost:${port}`;
   const podUrl = `http://${podHost}/`;
 
@@ -143,10 +150,11 @@ describe.each(stores)('A subdomain server with %s', (name, { storeConfig, teardo
     });
 
     it('should not be able to create a pod with the same name.', async(): Promise<void> => {
+      const newSettings = { ...settings, webId: 'http://test.com/#bob', email: 'bob@test.email' };
       const res = await fetch(`${baseUrl}idp/register`, {
         method: 'POST',
         headers: { 'content-type': 'application/x-www-form-urlencoded' },
-        body: stringify(settings),
+        body: stringify(newSettings),
       });
       // 200 due to there only being a HTML solution right now that only returns 200
       expect(res.status).toBe(200);

@@ -9,7 +9,7 @@ import { joinUrl } from '../../../../util/PathUtil';
 import type { OwnershipValidator } from '../../../ownership/OwnershipValidator';
 import { getFormDataRequestBody } from '../../util/FormDataUtil';
 import { assertPassword, throwIdpInteractionError } from '../EmailPasswordUtil';
-import type { AccountStore } from '../storage/AccountStore';
+import type { AccountSettings, AccountStore } from '../storage/AccountStore';
 import type { InteractionResponseResult, InteractionHandlerInput } from './InteractionHandler';
 import { InteractionHandler } from './InteractionHandler';
 
@@ -48,7 +48,7 @@ export interface RegistrationHandlerArgs {
 interface ParsedInput {
   email: string;
   webId?: string;
-  password?: string;
+  password: string;
   podName?: string;
   template?: string;
   createWebId: boolean;
@@ -111,8 +111,9 @@ export class RegistrationHandler extends InteractionHandler {
       return { type: 'response', details };
     } catch (error: unknown) {
       // Don't expose the password field
-      delete result.password;
-      throwIdpInteractionError(error, result as Record<string, any>);
+      const prefilled: Record<string, any> = { ...result };
+      delete prefilled.password;
+      throwIdpInteractionError(error, prefilled);
     }
   }
 
@@ -135,9 +136,10 @@ export class RegistrationHandler extends InteractionHandler {
     }
 
     // Register the account
-    if (result.register) {
-      await this.accountStore.create(result.email, result.webId!, result.password!);
-    }
+    const settings: AccountSettings = {
+      useIdp: result.register,
+    };
+    await this.accountStore.create(result.email, result.webId!, result.password, settings);
 
     // Create the pod
     if (result.createPod) {
@@ -157,19 +159,15 @@ export class RegistrationHandler extends InteractionHandler {
         await this.podManager.createPod(podBaseUrl!, podSettings);
       } catch (error: unknown) {
         // In case pod creation errors we don't want to keep the account
-        if (result.register) {
-          await this.accountStore.deleteAccount(result.email);
-        }
+        await this.accountStore.deleteAccount(result.email);
         throw error;
       }
     }
 
     // Verify the account
-    if (result.register) {
-      // This prevents there being a small timeframe where the account can be used before the pod creation is finished.
-      // That timeframe could potentially be used by malicious users.
-      await this.accountStore.verify(result.email);
-    }
+    // This prevents there being a small timeframe where the account can be used before the pod creation is finished.
+    // That timeframe could potentially be used by malicious users.
+    await this.accountStore.verify(result.email);
 
     return {
       webId: result.webId,
@@ -206,11 +204,13 @@ export class RegistrationHandler extends InteractionHandler {
   private validateInput(parsed: NodeJS.Dict<string>): ParsedInput {
     const { email, password, confirmPassword, webId, podName, register, createPod, createWebId, template } = parsed;
 
-    // Parse email
+    // Parse account
     assert(typeof email === 'string' && emailRegex.test(email), 'Please enter a valid e-mail address.');
+    assertPassword(password, confirmPassword);
 
     const validated: ParsedInput = {
       email,
+      password,
       template,
       register: Boolean(register) || Boolean(createWebId),
       createPod: Boolean(createPod) || Boolean(createWebId),
@@ -228,12 +228,6 @@ export class RegistrationHandler extends InteractionHandler {
     if (validated.createWebId || validated.createPod) {
       assert(typeof podName === 'string' && podName.length > 0, 'Please specify a Pod name.');
       validated.podName = podName;
-    }
-
-    // Parse account
-    if (validated.register) {
-      assertPassword(password, confirmPassword);
-      validated.password = password;
     }
 
     return validated;
