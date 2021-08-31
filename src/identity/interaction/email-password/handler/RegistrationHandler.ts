@@ -138,6 +138,7 @@ export class RegistrationHandler extends InteractionHandler {
     // Register the account
     const settings: AccountSettings = {
       useIdp: result.register,
+      podBaseUrl: podBaseUrl?.path,
     };
     await this.accountStore.create(result.email, result.webId!, result.password, settings);
 

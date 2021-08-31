@@ -334,6 +334,43 @@ describe('A Solid server with IDP', (): void => {
       res = await state.session.fetch(newWebId, patchOptions);
       expect(res.status).toBe(205);
     });
+
+    it('always has control over data in the pod.', async(): Promise<void> => {
+      const podBaseUrl = `${baseUrl}${podName}/`;
+      const brokenAcl = '<#authorization> a <http://www.w3.org/ns/auth/acl#Authorization> .';
+
+      // Make the acl file unusable
+      let res = await state.session.fetch(`${podBaseUrl}.acl`, {
+        method: 'PUT',
+        headers: { 'content-type': 'text/turtle' },
+        body: brokenAcl,
+      });
+      expect(res.status).toBe(205);
+
+      // Owner locked is locked out
+      res = await state.session.fetch(podBaseUrl);
+      expect(res.status).toBe(403);
+
+      const fixedAcl = `@prefix acl: <http://www.w3.org/ns/auth/acl#>.
+@prefix foaf: <http://xmlns.com/foaf/0.1/>.
+
+<#authorization>
+    a               acl:Authorization;
+    acl:agentClass  foaf:Agent;
+    acl:mode        acl:Read;
+    acl:accessTo    <./>.`;
+      // Owner can still update the acl
+      res = await state.session.fetch(`${podBaseUrl}.acl`, {
+        method: 'PUT',
+        headers: { 'content-type': 'text/turtle' },
+        body: fixedAcl,
+      });
+      expect(res.status).toBe(205);
+
+      // Access is possible again
+      res = await state.session.fetch(podBaseUrl);
+      expect(res.status).toBe(200);
+    });
   });
 
   describe('setup', (): void => {

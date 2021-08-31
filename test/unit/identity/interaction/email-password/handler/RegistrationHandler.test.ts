@@ -160,7 +160,7 @@ describe('A RegistrationHandler', (): void => {
           email,
           webId,
           oidcIssuer: baseUrl,
-          podBaseUrl: `${baseUrl}${podName}/`,
+          podBaseUrl,
           createWebId: false,
           register: false,
           createPod: true,
@@ -175,7 +175,7 @@ describe('A RegistrationHandler', (): void => {
       expect(podManager.createPod).toHaveBeenCalledTimes(1);
       expect(podManager.createPod).toHaveBeenLastCalledWith({ path: `${baseUrl}${podName}/` }, podSettings);
       expect(accountStore.create).toHaveBeenCalledTimes(1);
-      expect(accountStore.create).toHaveBeenLastCalledWith(email, webId, password, { useIdp: false });
+      expect(accountStore.create).toHaveBeenLastCalledWith(email, webId, password, { useIdp: false, podBaseUrl });
       expect(accountStore.verify).toHaveBeenCalledTimes(1);
 
       expect(accountStore.deleteAccount).toHaveBeenCalledTimes(0);
@@ -190,7 +190,7 @@ describe('A RegistrationHandler', (): void => {
           email,
           webId,
           oidcIssuer: baseUrl,
-          podBaseUrl: `${baseUrl}${podName}/`,
+          podBaseUrl,
           createWebId: false,
           register: true,
           createPod: true,
@@ -201,7 +201,7 @@ describe('A RegistrationHandler', (): void => {
       expect(ownershipValidator.handleSafe).toHaveBeenCalledTimes(1);
       expect(ownershipValidator.handleSafe).toHaveBeenLastCalledWith({ webId });
       expect(accountStore.create).toHaveBeenCalledTimes(1);
-      expect(accountStore.create).toHaveBeenLastCalledWith(email, webId, password, { useIdp: true });
+      expect(accountStore.create).toHaveBeenLastCalledWith(email, webId, password, { useIdp: true, podBaseUrl });
       expect(identifierGenerator.generate).toHaveBeenCalledTimes(1);
       expect(identifierGenerator.generate).toHaveBeenLastCalledWith(podName);
       expect(podManager.createPod).toHaveBeenCalledTimes(1);
@@ -222,7 +222,7 @@ describe('A RegistrationHandler', (): void => {
       expect(ownershipValidator.handleSafe).toHaveBeenCalledTimes(1);
       expect(ownershipValidator.handleSafe).toHaveBeenLastCalledWith({ webId });
       expect(accountStore.create).toHaveBeenCalledTimes(1);
-      expect(accountStore.create).toHaveBeenLastCalledWith(email, webId, password, { useIdp: true });
+      expect(accountStore.create).toHaveBeenLastCalledWith(email, webId, password, { useIdp: true, podBaseUrl });
       expect(identifierGenerator.generate).toHaveBeenCalledTimes(1);
       expect(identifierGenerator.generate).toHaveBeenLastCalledWith(podName);
       expect(podManager.createPod).toHaveBeenCalledTimes(1);
@@ -245,7 +245,7 @@ describe('A RegistrationHandler', (): void => {
           email,
           webId: generatedWebID,
           oidcIssuer: baseUrl,
-          podBaseUrl: `${baseUrl}${podName}/`,
+          podBaseUrl,
           createWebId: true,
           register: true,
           createPod: true,
@@ -256,7 +256,8 @@ describe('A RegistrationHandler', (): void => {
       expect(identifierGenerator.generate).toHaveBeenCalledTimes(1);
       expect(identifierGenerator.generate).toHaveBeenLastCalledWith(podName);
       expect(accountStore.create).toHaveBeenCalledTimes(1);
-      expect(accountStore.create).toHaveBeenLastCalledWith(email, generatedWebID, password, { useIdp: true });
+      expect(accountStore.create)
+        .toHaveBeenLastCalledWith(email, generatedWebID, password, { useIdp: true, podBaseUrl });
       expect(accountStore.verify).toHaveBeenCalledTimes(1);
       expect(accountStore.verify).toHaveBeenLastCalledWith(email);
       expect(podManager.createPod).toHaveBeenCalledTimes(1);
