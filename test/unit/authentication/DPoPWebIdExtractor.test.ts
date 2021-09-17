@@ -1,4 +1,5 @@
 import { createSolidTokenVerifier } from '@solid/access-token-verifier';
+import { AGENT } from '../../../src/authentication/CredentialTypes';
 import { DPoPWebIdExtractor } from '../../../src/authentication/DPoPWebIdExtractor';
 import type { HttpRequest } from '../../../src/server/HttpRequest';
 import { BadRequestHttpError } from '../../../src/util/errors/BadRequestHttpError';
@@ -85,7 +86,7 @@ describe('A DPoPWebIdExtractor', (): void => {
 
     it('returns the extracted WebID.', async(): Promise<void> => {
       const result = webIdExtractor.handleSafe(request);
-      await expect(result).resolves.toEqual({ webId: 'http://alice.example/card#me' });
+      await expect(result).resolves.toEqual({ [AGENT]: { webId: 'http://alice.example/card#me' }});
     });
   });
 

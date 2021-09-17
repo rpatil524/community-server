@@ -2,6 +2,7 @@
 export * from './authentication/BearerWebIdExtractor';
 export * from './authentication/Credentials';
 export * from './authentication/CredentialsExtractor';
+export * from './authentication/CredentialTypes';
 export * from './authentication/DPoPWebIdExtractor';
 export * from './authentication/EmptyCredentialsExtractor';
 export * from './authentication/UnsecureConstantCredentialsExtractor';

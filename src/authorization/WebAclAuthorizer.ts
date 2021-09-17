@@ -1,6 +1,7 @@
 import type { Quad, Term } from 'n3';
 import { Store } from 'n3';
-import type { Credentials } from '../authentication/Credentials';
+import type { Credentials, CredentialSet } from '../authentication/Credentials';
+import { AGENT, EVERYONE } from '../authentication/CredentialTypes';
 import type { AuxiliaryIdentifierStrategy } from '../ldp/auxiliary/AuxiliaryIdentifierStrategy';
 import type { PermissionSet } from '../ldp/permissions/PermissionSet';
 import type { Representation } from '../ldp/representation/Representation';
@@ -18,7 +19,7 @@ import type { IdentifierStrategy } from '../util/identifiers/IdentifierStrategy'
 import { readableToQuads } from '../util/StreamUtil';
 import { ACL, RDF } from '../util/Vocabularies';
 import type { AccessChecker } from './access-checkers/AccessChecker';
-import type { AuthorizerArgs } from './Authorizer';
+import type { AuthorizerInput } from './Authorizer';
 import { Authorizer } from './Authorizer';
 import { WebAclAuthorization } from './WebAclAuthorization';
 
@@ -50,9 +51,15 @@ export class WebAclAuthorizer extends Authorizer {
     this.accessChecker = accessChecker;
   }
 
-  public async canHandle({ identifier }: AuthorizerArgs): Promise<void> {
+  public async canHandle({ identifier, credentials }: AuthorizerInput): Promise<void> {
     if (this.aclStrategy.isAuxiliaryIdentifier(identifier)) {
       throw new NotImplementedHttpError('WebAclAuthorizer does not support permissions on auxiliary resources.');
+    }
+
+    for (const [ key, value ] of Object.entries(credentials)) {
+      if (value && key !== AGENT && key !== EVERYONE) {
+        throw new NotImplementedHttpError(`Unsupported credentials type ${key}`);
+      }
     }
   }
 
@@ -61,20 +68,22 @@ export class WebAclAuthorizer extends Authorizer {
    * Will throw an error if this is not the case.
    * @param input - Relevant data needed to check if access can be granted.
    */
-  public async handle({ identifier, permissions, credentials }: AuthorizerArgs): Promise<WebAclAuthorization> {
+  public async handle({ identifier, permissions, credentials }: AuthorizerInput):
+  Promise<WebAclAuthorization> {
     // Determine the required access modes
     const modes = (Object.keys(permissions) as (keyof PermissionSet)[]).filter((key): boolean => permissions[key]);
-    this.logger.debug(`Checking if ${credentials.webId} has ${modes.join()} permissions for ${identifier.path}`);
+    this.logger.debug(`Checking if ${credentials.agent?.webId} has ${modes.join()} permissions for ${identifier.path}`);
 
     // Determine the full authorization for the agent granted by the applicable ACL
     const acl = await this.getAclRecursive(identifier);
     const authorization = await this.createAuthorization(credentials, acl);
 
     // Verify that the authorization allows all required modes
+    const agent = credentials.agent ?? credentials.everyone ?? {};
     for (const mode of modes) {
-      this.requirePermission(credentials, authorization, mode);
+      this.requirePermission(agent, authorization, mode);
     }
-    this.logger.debug(`${credentials.webId} has ${modes.join()} permissions for ${identifier.path}`);
+    this.logger.debug(`${agent.webId} has ${modes.join()} permissions for ${identifier.path}`);
     return authorization;
   }
 
@@ -88,28 +97,39 @@ export class WebAclAuthorizer extends Authorizer {
 
   /**
    * Creates an Authorization object based on the quads found in the ACL.
-   * @param agent - Agent whose credentials will be used for the `user` field.
+   * @param credentials - Credentials to check permissions for.
    * @param acl - Store containing all relevant authorization triples.
    */
-  private async createAuthorization(agent: Credentials, acl: Store): Promise<WebAclAuthorization> {
-    const publicPermissions = await this.determinePermissions({}, acl);
-    const agentPermissions = await this.determinePermissions(agent, acl);
+  private async createAuthorization(credentials: CredentialSet, acl: Store):
+  Promise<WebAclAuthorization> {
+    const publicPermissions = await this.determinePermissions(acl, credentials.everyone);
+    const agentPermissions = await this.determinePermissions(acl, credentials.agent);
+
+    // Agent at least has the public permissions
+    // This can be relevant when no agent is provided
+    for (const [ key, value ] of Object.entries(agentPermissions) as [keyof PermissionSet, boolean][]) {
+      agentPermissions[key] = value || publicPermissions[key];
+    }
 
     return new WebAclAuthorization(agentPermissions, publicPermissions);
   }
 
   /**
    * Determines the available permissions for the given credentials.
-   * @param credentials - Credentials to find the permissions for.
+   * Will deny all permissions if credentials are not defined
    * @param acl - Store containing all relevant authorization triples.
+   * @param credentials - Credentials to find the permissions for.
    */
-  private async determinePermissions(credentials: Credentials, acl: Store): Promise<PermissionSet> {
+  private async determinePermissions(acl: Store, credentials?: Credentials): Promise<PermissionSet> {
     const permissions = {
       read: false,
       write: false,
       append: false,
       control: false,
     };
+    if (!credentials) {
+      return permissions;
+    }
 
     // Apply all ACL rules
     const aclRules = acl.getSubjects(RDF.type, ACL.Authorization, null);

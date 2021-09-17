@@ -5,8 +5,9 @@ import { getLoggerFor } from '../logging/LogUtil';
 import type { HttpRequest } from '../server/HttpRequest';
 import { BadRequestHttpError } from '../util/errors/BadRequestHttpError';
 import { NotImplementedHttpError } from '../util/errors/NotImplementedHttpError';
-import type { Credentials } from './Credentials';
+import type { CredentialSet } from './Credentials';
 import { CredentialsExtractor } from './CredentialsExtractor';
+import { AGENT } from './CredentialTypes';
 
 /**
  * Credentials extractor that extracts a WebID from a DPoP-bound access token.
@@ -31,7 +32,7 @@ export class DPoPWebIdExtractor extends CredentialsExtractor {
     }
   }
 
-  public async handle(request: HttpRequest): Promise<Credentials> {
+  public async handle(request: HttpRequest): Promise<CredentialSet> {
     const { headers: { authorization, dpop }, method } = request;
     if (!dpop) {
       throw new BadRequestHttpError('No DPoP header specified.');
@@ -53,7 +54,7 @@ export class DPoPWebIdExtractor extends CredentialsExtractor {
         },
       );
       this.logger.info(`Verified WebID via DPoP-bound access token: ${webId}`);
-      return { webId };
+      return { [AGENT]: { webId }};
     } catch (error: unknown) {
       const message = `Error verifying WebID via DPoP-bound access token: ${(error as Error).message}`;
       this.logger.warn(message);
