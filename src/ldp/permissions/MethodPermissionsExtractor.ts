@@ -1,6 +1,6 @@
 import { NotImplementedHttpError } from '../../util/errors/NotImplementedHttpError';
 import type { Operation } from '../operations/Operation';
-import type { PermissionSet } from './PermissionSet';
+import type { Permissions } from './Permissions';
 import { PermissionsExtractor } from './PermissionsExtractor';
 
 const READ_METHODS = new Set([ 'GET', 'HEAD' ]);
@@ -19,7 +19,7 @@ export class MethodPermissionsExtractor extends PermissionsExtractor {
     }
   }
 
-  public async handle({ method }: Operation): Promise<PermissionSet> {
+  public async handle({ method }: Operation): Promise<Permissions> {
     const read = READ_METHODS.has(method);
     const write = WRITE_METHODS.has(method);
     const append = write || APPEND_METHODS.has(method);

@@ -3,7 +3,7 @@ import { Store } from 'n3';
 import type { Credentials, CredentialSet } from '../authentication/Credentials';
 import { AGENT, EVERYONE } from '../authentication/CredentialTypes';
 import type { AuxiliaryIdentifierStrategy } from '../ldp/auxiliary/AuxiliaryIdentifierStrategy';
-import type { PermissionSet } from '../ldp/permissions/PermissionSet';
+import type { Permissions, PermissionSet } from '../ldp/permissions/Permissions';
 import type { Representation } from '../ldp/representation/Representation';
 import type { ResourceIdentifier } from '../ldp/representation/ResourceIdentifier';
 import { getLoggerFor } from '../logging/LogUtil';
@@ -14,16 +14,14 @@ import { ForbiddenHttpError } from '../util/errors/ForbiddenHttpError';
 import { InternalServerError } from '../util/errors/InternalServerError';
 import { NotFoundHttpError } from '../util/errors/NotFoundHttpError';
 import { NotImplementedHttpError } from '../util/errors/NotImplementedHttpError';
-import { UnauthorizedHttpError } from '../util/errors/UnauthorizedHttpError';
 import type { IdentifierStrategy } from '../util/identifiers/IdentifierStrategy';
 import { readableToQuads } from '../util/StreamUtil';
 import { ACL, RDF } from '../util/Vocabularies';
 import type { AccessChecker } from './access-checkers/AccessChecker';
-import type { AuthorizerInput } from './Authorizer';
-import { Authorizer } from './Authorizer';
-import { WebAclAuthorization } from './WebAclAuthorization';
+import type { PermissionReaderInput } from './PermissionReader';
+import { PermissionReader } from './PermissionReader';
 
-const modesMap: Record<string, keyof PermissionSet> = {
+const modesMap: Record<string, keyof Permissions> = {
   [ACL.Read]: 'read',
   [ACL.Write]: 'write',
   [ACL.Append]: 'append',
@@ -31,10 +29,10 @@ const modesMap: Record<string, keyof PermissionSet> = {
 } as const;
 
 /**
- * Handles authorization according to the WAC specification.
+ * Handles permissions according to the WAC specification.
  * Specific access checks are done by the provided {@link AccessChecker}.
  */
-export class WebAclAuthorizer extends Authorizer {
+export class WebAclReader extends PermissionReader {
   protected readonly logger = getLoggerFor(this);
 
   private readonly aclStrategy: AuxiliaryIdentifierStrategy;
@@ -51,7 +49,7 @@ export class WebAclAuthorizer extends Authorizer {
     this.accessChecker = accessChecker;
   }
 
-  public async canHandle({ identifier, credentials }: AuthorizerInput): Promise<void> {
+  public async canHandle({ identifier, credentials }: PermissionReaderInput): Promise<void> {
     if (this.aclStrategy.isAuxiliaryIdentifier(identifier)) {
       throw new NotImplementedHttpError('WebAclAuthorizer does not support permissions on auxiliary resources.');
     }
@@ -68,31 +66,14 @@ export class WebAclAuthorizer extends Authorizer {
    * Will throw an error if this is not the case.
    * @param input - Relevant data needed to check if access can be granted.
    */
-  public async handle({ identifier, permissions, credentials }: AuthorizerInput):
-  Promise<WebAclAuthorization> {
+  public async handle({ identifier, credentials }: PermissionReaderInput):
+  Promise<PermissionSet> {
     // Determine the required access modes
-    const modes = (Object.keys(permissions) as (keyof PermissionSet)[]).filter((key): boolean => permissions[key]);
-    this.logger.debug(`Checking if ${credentials.agent?.webId} has ${modes.join()} permissions for ${identifier.path}`);
+    this.logger.debug(`Checking permissions of ${credentials.agent?.webId} for ${identifier.path}`);
 
     // Determine the full authorization for the agent granted by the applicable ACL
     const acl = await this.getAclRecursive(identifier);
-    const authorization = await this.createAuthorization(credentials, acl);
-
-    // Verify that the authorization allows all required modes
-    const agent = credentials.agent ?? credentials.everyone ?? {};
-    for (const mode of modes) {
-      this.requirePermission(agent, authorization, mode);
-    }
-    this.logger.debug(`${agent.webId} has ${modes.join()} permissions for ${identifier.path}`);
-    return authorization;
-  }
-
-  /**
-   * Checks whether the agent is authenticated (logged in) or not (public/anonymous).
-   * @param agent - Agent whose credentials will be checked.
-   */
-  private isAuthenticated(agent: Credentials): agent is ({ webId: string }) {
-    return typeof agent.webId === 'string';
+    return this.createPermissions(credentials, acl);
   }
 
   /**
@@ -100,18 +81,22 @@ export class WebAclAuthorizer extends Authorizer {
    * @param credentials - Credentials to check permissions for.
    * @param acl - Store containing all relevant authorization triples.
    */
-  private async createAuthorization(credentials: CredentialSet, acl: Store):
-  Promise<WebAclAuthorization> {
+  private async createPermissions(credentials: CredentialSet, acl: Store):
+  Promise<PermissionSet> {
     const publicPermissions = await this.determinePermissions(acl, credentials.everyone);
     const agentPermissions = await this.determinePermissions(acl, credentials.agent);
 
     // Agent at least has the public permissions
     // This can be relevant when no agent is provided
-    for (const [ key, value ] of Object.entries(agentPermissions) as [keyof PermissionSet, boolean][]) {
-      agentPermissions[key] = value || publicPermissions[key];
+    for (const [ key, value ] of Object.entries(publicPermissions) as [keyof Permissions, boolean][]) {
+      // `determinePermissions` can only return `true` values
+      agentPermissions[key] = value;
     }
 
-    return new WebAclAuthorization(agentPermissions, publicPermissions);
+    return {
+      [AGENT]: agentPermissions,
+      [EVERYONE]: publicPermissions,
+    };
   }
 
   /**
@@ -120,13 +105,8 @@ export class WebAclAuthorizer extends Authorizer {
    * @param acl - Store containing all relevant authorization triples.
    * @param credentials - Credentials to find the permissions for.
    */
-  private async determinePermissions(acl: Store, credentials?: Credentials): Promise<PermissionSet> {
-    const permissions = {
-      read: false,
-      write: false,
-      append: false,
-      control: false,
-    };
+  private async determinePermissions(acl: Store, credentials?: Credentials): Promise<Permissions> {
+    const permissions: Permissions = {};
     if (!credentials) {
       return permissions;
     }
@@ -152,29 +132,6 @@ export class WebAclAuthorizer extends Authorizer {
     }
 
     return permissions;
-  }
-
-  /**
-   * Checks if the authorization grants the agent permission to use the given mode.
-   * Throws a {@link ForbiddenHttpError} or {@link UnauthorizedHttpError} depending on the credentials
-   * if access is not allowed.
-   * @param agent - Agent that wants access.
-   * @param authorization - An Authorization containing the permissions the agent has on the resource.
-   * @param mode - Which mode is requested.
-   */
-  private requirePermission(agent: Credentials, authorization: WebAclAuthorization, mode: keyof PermissionSet): void {
-    if (!authorization.user[mode]) {
-      if (this.isAuthenticated(agent)) {
-        this.logger.warn(`Agent ${agent.webId} has no ${mode} permissions`);
-        throw new ForbiddenHttpError();
-      } else {
-        // Solid, §2.1: "When a client does not provide valid credentials when requesting a resource that requires it,
-        // the data pod MUST send a response with a 401 status code (unless 404 is preferred for security reasons)."
-        // https://solid.github.io/specification/protocol#http-server
-        this.logger.warn(`Unauthenticated agent has no ${mode} permissions`);
-        throw new UnauthorizedHttpError();
-      }
-    }
   }
 
   /**

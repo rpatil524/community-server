@@ -1,4 +1,4 @@
-import type { PermissionSet } from '../ldp/permissions/PermissionSet';
+import type { Permissions } from '../ldp/permissions/Permissions';
 import type { RepresentationMetadata } from '../ldp/representation/RepresentationMetadata';
 import { ACL, AUTH } from '../util/Vocabularies';
 import type { Authorization } from './Authorization';
@@ -10,19 +10,19 @@ export class WebAclAuthorization implements Authorization {
   /**
    * Permissions granted to the agent requesting the resource.
    */
-  public user: PermissionSet;
+  public user: Permissions;
   /**
    * Permissions granted to the public.
    */
-  public everyone: PermissionSet;
+  public everyone: Permissions;
 
-  public constructor(user: PermissionSet, everyone: PermissionSet) {
+  public constructor(user: Permissions, everyone: Permissions) {
     this.user = user;
     this.everyone = everyone;
   }
 
   public addMetadata(metadata: RepresentationMetadata): void {
-    for (const mode of (Object.keys(this.user) as (keyof PermissionSet)[])) {
+    for (const mode of (Object.keys(this.user) as (keyof Permissions)[])) {
       const capitalizedMode = mode.charAt(0).toUpperCase() + mode.slice(1) as 'Read' | 'Write' | 'Append' | 'Control';
       if (this.user[mode]) {
         metadata.add(AUTH.terms.userMode, ACL.terms[capitalizedMode]);

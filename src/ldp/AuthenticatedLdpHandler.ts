@@ -11,7 +11,7 @@ import type { ResponseDescription } from './http/response/ResponseDescription';
 import type { ResponseWriter } from './http/ResponseWriter';
 import type { Operation } from './operations/Operation';
 import type { OperationHandler } from './operations/OperationHandler';
-import type { PermissionSet } from './permissions/PermissionSet';
+import type { Permissions } from './permissions/Permissions';
 import type { PermissionsExtractor } from './permissions/PermissionsExtractor';
 
 export interface AuthenticatedLdpHandlerArgs extends BaseHttpHandlerArgs {
@@ -81,7 +81,7 @@ export class AuthenticatedLdpHandler extends BaseHttpHandler {
     const credentials: CredentialSet = await this.credentialsExtractor.handleSafe(request);
     this.logger.verbose(`Extracted credentials: ${JSON.stringify(credentials)}`);
 
-    const permissions: PermissionSet = await this.permissionsExtractor.handleSafe(operation);
+    const permissions: Permissions = await this.permissionsExtractor.handleSafe(operation);
     const { read, write, append } = permissions;
     this.logger.verbose(`Required permissions are read: ${read}, write: ${write}, append: ${append}`);
 

@@ -1,7 +1,7 @@
 import { NotImplementedHttpError } from '../../util/errors/NotImplementedHttpError';
 import type { AuxiliaryIdentifierStrategy } from '../auxiliary/AuxiliaryIdentifierStrategy';
 import type { Operation } from '../operations/Operation';
-import type { PermissionSet } from './PermissionSet';
+import type { Permissions } from './Permissions';
 import { PermissionsExtractor } from './PermissionsExtractor';
 
 /**
@@ -25,7 +25,7 @@ export class AclPermissionsExtractor extends PermissionsExtractor {
     }
   }
 
-  public async handle(): Promise<PermissionSet> {
+  public async handle(): Promise<Permissions> {
     return {
       read: false,
       write: false,

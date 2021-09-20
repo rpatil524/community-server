@@ -3,7 +3,7 @@ import { NotImplementedHttpError } from '../../util/errors/NotImplementedHttpErr
 import type { SparqlUpdatePatch } from '../http/SparqlUpdatePatch';
 import type { Operation } from '../operations/Operation';
 import type { Representation } from '../representation/Representation';
-import type { PermissionSet } from './PermissionSet';
+import type { Permissions } from './Permissions';
 import { PermissionsExtractor } from './PermissionsExtractor';
 
 /**
@@ -27,7 +27,7 @@ export class SparqlPatchPermissionsExtractor extends PermissionsExtractor {
     }
   }
 
-  public async handle({ body }: Operation): Promise<PermissionSet> {
+  public async handle({ body }: Operation): Promise<Permissions> {
     // Verified in `canHandle` call
     const update = (body as SparqlUpdatePatch).algebra as Algebra.DeleteInsert;
 

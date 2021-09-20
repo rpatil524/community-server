@@ -5,7 +5,7 @@ import { AuthenticatedLdpHandler } from '../../../src/ldp/AuthenticatedLdpHandle
 import { ResetResponseDescription } from '../../../src/ldp/http/response/ResetResponseDescription';
 import type { ResponseDescription } from '../../../src/ldp/http/response/ResponseDescription';
 import type { Operation } from '../../../src/ldp/operations/Operation';
-import type { PermissionSet } from '../../../src/ldp/permissions/PermissionSet';
+import type { Permissions } from '../../../src/ldp/permissions/Permissions';
 import type { RepresentationPreferences } from '../../../src/ldp/representation/RepresentationPreferences';
 import * as LogUtil from '../../../src/logging/LogUtil';
 import type { HttpRequest } from '../../../src/server/HttpRequest';
@@ -17,7 +17,7 @@ describe('An AuthenticatedLdpHandler', (): void => {
   const preferences: RepresentationPreferences = { type: { 'text/turtle': 0.9 }};
   let operation: Operation;
   const credentials: Credentials = {};
-  const permissions: PermissionSet = { read: true, write: false, append: false, control: false };
+  const permissions: Permissions = { read: true, write: false, append: false, control: false };
   const authorization: Authorization = { addMetadata: jest.fn() };
   const result: ResponseDescription = new ResetResponseDescription();
   const errorResult: ResponseDescription = { statusCode: 500 };
