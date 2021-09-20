@@ -9,23 +9,25 @@ export * from './authentication/UnionCredentialsExtractor';
 export * from './authentication/UnsecureConstantCredentialsExtractor';
 export * from './authentication/UnsecureWebIdExtractor';
 
+// Authorization/Access-Checkers
+export * from './authorization/access-checkers/AccessChecker';
+export * from './authorization/access-checkers/AgentAccessChecker';
+export * from './authorization/access-checkers/AgentClassAccessChecker';
+export * from './authorization/access-checkers/AgentGroupAccessChecker';
+
+// Authorization/Metadata
+export * from './authorization/metadata/PermissionMetadataWriter';
+export * from './authorization/metadata/WebAclMetadataWriter';
+
 // Authorization
 export * from './authorization/AllStaticReader';
-export * from './authorization/Authorization';
 export * from './authorization/Authorizer';
 export * from './authorization/AuxiliaryReader';
 export * from './authorization/PathBasedReader';
 export * from './authorization/PermissionBasedAuthorizer';
 export * from './authorization/PermissionReader';
 export * from './authorization/UnionReader';
-export * from './authorization/WebAclAuthorization';
 export * from './authorization/WebAclReader';
-
-// Authorization/access-checkers
-export * from './authorization/access-checkers/AccessChecker';
-export * from './authorization/access-checkers/AgentAccessChecker';
-export * from './authorization/access-checkers/AgentClassAccessChecker';
-export * from './authorization/access-checkers/AgentGroupAccessChecker';
 
 // Identity/Configuration
 export * from './identity/configuration/IdentityProviderFactory';

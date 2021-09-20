@@ -1,11 +1,11 @@
 import type { Credentials } from '../../../src/authentication/Credentials';
-import type { Authorization } from '../../../src/authorization/Authorization';
+import { AGENT } from '../../../src/authentication/CredentialTypes';
 import type { AuthenticatedLdpHandlerArgs } from '../../../src/ldp/AuthenticatedLdpHandler';
 import { AuthenticatedLdpHandler } from '../../../src/ldp/AuthenticatedLdpHandler';
 import { ResetResponseDescription } from '../../../src/ldp/http/response/ResetResponseDescription';
 import type { ResponseDescription } from '../../../src/ldp/http/response/ResponseDescription';
 import type { Operation } from '../../../src/ldp/operations/Operation';
-import type { Permissions } from '../../../src/ldp/permissions/Permissions';
+import type { Permissions, PermissionSet } from '../../../src/ldp/permissions/Permissions';
 import type { RepresentationPreferences } from '../../../src/ldp/representation/RepresentationPreferences';
 import * as LogUtil from '../../../src/logging/LogUtil';
 import type { HttpRequest } from '../../../src/server/HttpRequest';
@@ -18,7 +18,7 @@ describe('An AuthenticatedLdpHandler', (): void => {
   let operation: Operation;
   const credentials: Credentials = {};
   const permissions: Permissions = { read: true, write: false, append: false, control: false };
-  const authorization: Authorization = { addMetadata: jest.fn() };
+  const permissionSet: PermissionSet = { [AGENT]: { read: true }};
   const result: ResponseDescription = new ResetResponseDescription();
   const errorResult: ResponseDescription = { statusCode: 500 };
   let args: AuthenticatedLdpHandlerArgs;
@@ -33,7 +33,8 @@ describe('An AuthenticatedLdpHandler', (): void => {
       } as any,
       credentialsExtractor: { handleSafe: jest.fn().mockResolvedValue(credentials) } as any,
       permissionsExtractor: { handleSafe: jest.fn().mockResolvedValue(permissions) } as any,
-      authorizer: { handleSafe: jest.fn().mockResolvedValue(authorization) } as any,
+      permissionReader: { handleSafe: jest.fn().mockResolvedValue(permissionSet) } as any,
+      authorizer: { handleSafe: jest.fn() } as any,
       operationHandler: { handleSafe: jest.fn().mockResolvedValue(result) } as any,
       errorHandler: { handleSafe: jest.fn().mockResolvedValue(errorResult) } as any,
       responseWriter: { handleSafe: jest.fn() } as any,
@@ -65,10 +66,11 @@ describe('An AuthenticatedLdpHandler', (): void => {
     expect(args.credentialsExtractor.handleSafe).toHaveBeenLastCalledWith(request);
     expect(args.permissionsExtractor.handleSafe).toHaveBeenCalledTimes(1);
     expect(args.permissionsExtractor.handleSafe).toHaveBeenLastCalledWith(operation);
+    expect(args.permissionReader.handleSafe).toHaveBeenCalledTimes(1);
+    expect(args.permissionReader.handleSafe).toHaveBeenLastCalledWith({ credentials, identifier: operation.target });
     expect(args.authorizer.handleSafe).toHaveBeenCalledTimes(1);
     expect(args.authorizer.handleSafe)
-      .toHaveBeenLastCalledWith({ credentials, identifier: { path: 'identifier' }, permissions });
-    expect(operation.authorization).toBe(authorization);
+      .toHaveBeenLastCalledWith({ credentials, identifier: { path: 'identifier' }, permissions, permissionSet });
     expect(args.operationHandler.handleSafe).toHaveBeenCalledTimes(1);
     expect(args.operationHandler.handleSafe).toHaveBeenLastCalledWith(operation);
     expect(args.errorHandler.handleSafe).toHaveBeenCalledTimes(0);

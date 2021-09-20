@@ -3,11 +3,8 @@ import type { Permissions, PermissionSet } from '../ldp/permissions/Permissions'
 import { getLoggerFor } from '../logging/LogUtil';
 import { ForbiddenHttpError } from '../util/errors/ForbiddenHttpError';
 import { UnauthorizedHttpError } from '../util/errors/UnauthorizedHttpError';
-import type { Authorization } from './Authorization';
 import type { AuthorizerInput } from './Authorizer';
 import { Authorizer } from './Authorizer';
-import type { PermissionReader } from './PermissionReader';
-import { WebAclAuthorization } from './WebAclAuthorization';
 
 /**
  * Authorizer that bases its decision on the output it gets from its PermissionReader.
@@ -18,23 +15,8 @@ import { WebAclAuthorization } from './WebAclAuthorization';
 export class PermissionBasedAuthorizer extends Authorizer {
   protected readonly logger = getLoggerFor(this);
 
-  private readonly reader: PermissionReader;
-
-  public constructor(reader: PermissionReader) {
-    super();
-    this.reader = reader;
-  }
-
-  public async canHandle(input: AuthorizerInput): Promise<void> {
-    return this.reader.canHandle(input);
-  }
-
-  public async handle(input: AuthorizerInput): Promise<Authorization> {
-    const { credentials, permissions, identifier } = input;
-
-    // Read out the permissions
-    const permissionSet = await this.reader.handle(input);
-    const authorization = new WebAclAuthorization(permissionSet.agent ?? {}, permissionSet.everyone ?? {});
+  public async handle(input: AuthorizerInput): Promise<void> {
+    const { credentials, permissions, identifier, permissionSet } = input;
 
     // Find the modes that are required
     const modes = (Object.keys(permissions) as (keyof Permissions)[])
@@ -45,7 +27,6 @@ export class PermissionBasedAuthorizer extends Authorizer {
       this.requirePermission(credentials, permissionSet, mode);
     }
     this.logger.debug(`${JSON.stringify(credentials)} has ${modes.join()} permissions for ${identifier.path}`);
-    return authorization;
   }
 
   /**

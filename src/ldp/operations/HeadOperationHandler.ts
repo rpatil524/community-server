@@ -1,3 +1,4 @@
+import type { PermissionMetadataWriter } from '../../authorization/metadata/PermissionMetadataWriter';
 import type { ResourceStore } from '../../storage/ResourceStore';
 import { NotImplementedHttpError } from '../../util/errors/NotImplementedHttpError';
 import { OkResponseDescription } from '../http/response/OkResponseDescription';
@@ -11,10 +12,12 @@ import { OperationHandler } from './OperationHandler';
  */
 export class HeadOperationHandler extends OperationHandler {
   private readonly store: ResourceStore;
+  private readonly metadataWriter: PermissionMetadataWriter;
 
-  public constructor(store: ResourceStore) {
+  public constructor(store: ResourceStore, metadataWriter: PermissionMetadataWriter) {
     super();
     this.store = store;
+    this.metadataWriter = metadataWriter;
   }
 
   public async canHandle(input: Operation): Promise<void> {
@@ -29,7 +32,9 @@ export class HeadOperationHandler extends OperationHandler {
     // Close the Readable as we will not return it.
     body.data.destroy();
 
-    input.authorization?.addMetadata(body.metadata);
+    if (input.permissionSet) {
+      await this.metadataWriter.handleSafe({ metadata: body.metadata, permissionSet: input.permissionSet });
+    }
 
     return new OkResponseDescription(body.metadata);
   }

@@ -1,6 +1,7 @@
 import type { CredentialSet } from '../authentication/Credentials';
 import type { CredentialsExtractor } from '../authentication/CredentialsExtractor';
 import type { Authorizer } from '../authorization/Authorizer';
+import type { PermissionReader } from '../authorization/PermissionReader';
 import { BaseHttpHandler } from '../server/BaseHttpHandler';
 import type { BaseHttpHandlerArgs } from '../server/BaseHttpHandler';
 import type { HttpHandlerInput } from '../server/HttpHandler';
@@ -28,6 +29,10 @@ export interface AuthenticatedLdpHandlerArgs extends BaseHttpHandlerArgs {
    */
   permissionsExtractor: PermissionsExtractor;
   /**
+   * Reads the permissions available for the Operation.
+   */
+  permissionReader: PermissionReader;
+  /**
    * Verifies if the requested operation is allowed.
    */
   authorizer: Authorizer;
@@ -43,6 +48,7 @@ export interface AuthenticatedLdpHandlerArgs extends BaseHttpHandlerArgs {
 export class AuthenticatedLdpHandler extends BaseHttpHandler {
   private readonly credentialsExtractor: CredentialsExtractor;
   private readonly permissionsExtractor: PermissionsExtractor;
+  private readonly permissionReader: PermissionReader;
   private readonly authorizer: Authorizer;
   private readonly operationHandler: OperationHandler;
 
@@ -54,6 +60,7 @@ export class AuthenticatedLdpHandler extends BaseHttpHandler {
     super(args);
     this.credentialsExtractor = args.credentialsExtractor;
     this.permissionsExtractor = args.permissionsExtractor;
+    this.permissionReader = args.permissionReader;
     this.authorizer = args.authorizer;
     this.operationHandler = args.operationHandler;
   }
@@ -82,13 +89,14 @@ export class AuthenticatedLdpHandler extends BaseHttpHandler {
     this.logger.verbose(`Extracted credentials: ${JSON.stringify(credentials)}`);
 
     const permissions: Permissions = await this.permissionsExtractor.handleSafe(operation);
-    const { read, write, append } = permissions;
-    this.logger.verbose(`Required permissions are read: ${read}, write: ${write}, append: ${append}`);
+    this.logger.verbose(`Required permissions are ${JSON.stringify(permissions)}`);
+
+    const permissionSet = await this.permissionReader.handleSafe({ credentials, identifier: operation.target });
+    this.logger.verbose(`Available permissions are ${JSON.stringify(permissionSet)}`);
 
     try {
-      const authorization = await this.authorizer
-        .handleSafe({ credentials, identifier: operation.target, permissions });
-      operation.authorization = authorization;
+      await this.authorizer.handleSafe({ credentials, identifier: operation.target, permissions, permissionSet });
+      operation.permissionSet = permissionSet;
     } catch (error: unknown) {
       this.logger.verbose(`Authorization failed: ${(error as any).message}`);
       throw error;

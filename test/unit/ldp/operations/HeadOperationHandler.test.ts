@@ -1,5 +1,5 @@
 import type { Readable } from 'stream';
-import type { Authorization } from '../../../../src/authorization/Authorization';
+import type { PermissionMetadataWriter } from '../../../../src/authorization/metadata/PermissionMetadataWriter';
 import { HeadOperationHandler } from '../../../../src/ldp/operations/HeadOperationHandler';
 import type { Operation } from '../../../../src/ldp/operations/Operation';
 import type { Representation } from '../../../../src/ldp/representation/Representation';
@@ -11,6 +11,7 @@ describe('A HeadOperationHandler', (): void => {
   const conditions = new BasicConditions({});
   const preferences = {};
   let store: ResourceStore;
+  let metadataWriter: jest.Mocked<PermissionMetadataWriter>;
   let handler: HeadOperationHandler;
   let data: Readable;
 
@@ -20,7 +21,12 @@ describe('A HeadOperationHandler', (): void => {
       getRepresentation: jest.fn(async(): Promise<Representation> =>
         ({ binary: false, data, metadata: 'metadata' } as any)),
     } as any;
-    handler = new HeadOperationHandler(store);
+
+    metadataWriter = {
+      handleSafe: jest.fn(),
+    } as any;
+
+    handler = new HeadOperationHandler(store, metadataWriter);
   });
 
   it('only supports HEAD operations.', async(): Promise<void> => {
@@ -40,14 +46,14 @@ describe('A HeadOperationHandler', (): void => {
   });
 
   it('adds authorization metadata in case the operation is an AuthorizedOperation.', async(): Promise<void> => {
-    const authorization: Authorization = { addMetadata: jest.fn() };
+    const permissionSet = {};
     const result = await handler.handle(
-      { target: { path: 'url' }, preferences, conditions, authorization } as Operation,
+      { target: { path: 'url' }, preferences, conditions, permissionSet } as Operation,
     );
     expect(result.statusCode).toBe(200);
     expect(store.getRepresentation).toHaveBeenCalledTimes(1);
     expect(store.getRepresentation).toHaveBeenLastCalledWith({ path: 'url' }, preferences, conditions);
-    expect(authorization.addMetadata).toHaveBeenCalledTimes(1);
-    expect(authorization.addMetadata).toHaveBeenLastCalledWith('metadata');
+    expect(metadataWriter.handleSafe).toHaveBeenCalledTimes(1);
+    expect(metadataWriter.handleSafe).toHaveBeenLastCalledWith({ metadata: 'metadata', permissionSet });
   });
 });

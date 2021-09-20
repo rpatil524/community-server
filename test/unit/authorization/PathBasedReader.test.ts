@@ -1,21 +1,19 @@
 import { AGENT } from '../../../src/authentication/CredentialTypes';
-import type { AuthorizerInput } from '../../../src/authorization/Authorizer';
 import { PathBasedReader } from '../../../src/authorization/PathBasedReader';
-import type { PermissionReader } from '../../../src/authorization/PermissionReader';
+import type { PermissionReader, PermissionReaderInput } from '../../../src/authorization/PermissionReader';
 import type { PermissionSet } from '../../../src/ldp/permissions/Permissions';
 import { NotImplementedHttpError } from '../../../src/util/errors/NotImplementedHttpError';
 
 describe('A PathBasedReader', (): void => {
   const baseUrl = 'http://test.com/foo/';
   const permissionSet: PermissionSet = { [AGENT]: { read: true }};
-  let input: AuthorizerInput;
+  let input: PermissionReaderInput;
   let readers: jest.Mocked<PermissionReader>[];
   let reader: PathBasedReader;
 
   beforeEach(async(): Promise<void> => {
     input = {
       identifier: { path: `${baseUrl}first` },
-      permissions: { read: true, append: false, write: false, control: false },
       credentials: {},
     };
 

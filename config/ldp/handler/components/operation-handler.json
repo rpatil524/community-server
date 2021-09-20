@@ -7,7 +7,8 @@
       "handlers": [
         {
           "@type": "GetOperationHandler",
-          "store": { "@id": "urn:solid-server:default:ResourceStore" }
+          "store": { "@id": "urn:solid-server:default:ResourceStore" },
+          "metadataWriter": { "@id": "urn:solid-server:default:PermissionMetadataWriter" }
         },
         {
           "@type": "PostOperationHandler",
@@ -23,13 +24,18 @@
         },
         {
           "@type": "HeadOperationHandler",
-          "store": { "@id": "urn:solid-server:default:ResourceStore" }
+          "store": { "@id": "urn:solid-server:default:ResourceStore" },
+          "metadataWriter": { "@id": "urn:solid-server:default:PermissionMetadataWriter" }
         },
         {
           "@type": "PatchOperationHandler",
           "store": { "@id": "urn:solid-server:default:ResourceStore" }
         }
       ]
+    },
+    {
+      "@id": "urn:solid-server:default:PermissionMetadataWriter",
+      "@type": "WebAclMetadataWriter"
     }
   ]
 }
