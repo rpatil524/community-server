@@ -310,6 +310,7 @@ export * from './util/handlers/AsyncHandler';
 export * from './util/handlers/BooleanHandler';
 export * from './util/handlers/ParallelHandler';
 export * from './util/handlers/SequenceHandler';
+export * from './util/handlers/UnionHandler';
 export * from './util/handlers/UnsupportedAsyncHandler';
 export * from './util/handlers/WaterfallHandler';
 
