@@ -24,4 +24,16 @@ describe('A WebAclMetadataWriter', (): void => {
     expect(metadata.getAll(AUTH.terms.userMode)).toEqualRdfTermArray([ ACL.terms.Read, ACL.terms.Write ]);
     expect(metadata.get(AUTH.terms.publicMode)).toEqualRdfTerm(ACL.terms.Read);
   });
+
+  it('ignores unknown modes.', async(): Promise<void> => {
+    const metadata = new RepresentationMetadata();
+    const permissionSet = {
+      [AGENT]: { read: true, create: true },
+      [EVERYONE]: { read: true },
+    };
+    await expect(writer.handle({ metadata, permissionSet })).resolves.toBeUndefined();
+    expect(metadata.quads()).toHaveLength(2);
+    expect(metadata.getAll(AUTH.terms.userMode)).toEqualRdfTermArray([ ACL.terms.Read ]);
+    expect(metadata.get(AUTH.terms.publicMode)).toEqualRdfTerm(ACL.terms.Read);
+  });
 });

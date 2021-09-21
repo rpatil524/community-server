@@ -7,7 +7,8 @@ export interface Permissions {
   read?: boolean;
   append?: boolean;
   write?: boolean;
-  control?: boolean;
+  create?: boolean;
+  delete?: boolean;
 }
 
 export type PermissionSet = Partial<Record<ALL_CREDENTIALS, Permissions>>;

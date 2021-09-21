@@ -51,12 +51,6 @@ describe('A WebAclReader', (): void => {
     reader = new WebAclReader(aclStrategy, store, identifierStrategy, accessChecker);
   });
 
-  it('handles all non-acl inputs.', async(): Promise<void> => {
-    await expect(reader.canHandle({ identifier, credentials })).resolves.toBeUndefined();
-    await expect(reader.canHandle({ identifier: aclStrategy.getAuxiliaryIdentifier(identifier) } as any))
-      .rejects.toThrow(NotImplementedHttpError);
-  });
-
   it('only handles AGENT and EVERYONE credentials.', async(): Promise<void> => {
     (credentials as any).apple = {};
     await expect(reader.canHandle({ identifier, credentials }))
@@ -143,15 +137,39 @@ describe('A WebAclReader', (): void => {
     await expect(promise).rejects.toThrow(ForbiddenHttpError);
   });
 
-  it('allows an agent to append if they have write access.', async(): Promise<void> => {
+  it('allows an agent to append/create/delete if they have write access.', async(): Promise<void> => {
     store.getRepresentation.mockResolvedValue({ data: guardedStreamFrom([
       quad(nn('auth'), nn(`${rdf}type`), nn(`${acl}Authorization`)),
       quad(nn('auth'), nn(`${acl}accessTo`), nn(identifier.path)),
       quad(nn('auth'), nn(`${acl}mode`), nn(`${acl}Write`)),
     ]) } as Representation);
     await expect(reader.handle({ identifier, credentials })).resolves.toEqual({
-      [EVERYONE]: { write: true, append: true },
-      [AGENT]: { write: true, append: true },
+      [EVERYONE]: { write: true, append: true, create: true, delete: true },
+      [AGENT]: { write: true, append: true, create: true, delete: true },
+    });
+  });
+
+  it('allows everything on an acl resource if control permissions are granted.', async(): Promise<void> => {
+    store.getRepresentation.mockResolvedValue({ data: guardedStreamFrom([
+      quad(nn('auth'), nn(`${rdf}type`), nn(`${acl}Authorization`)),
+      quad(nn('auth'), nn(`${acl}accessTo`), nn(identifier.path)),
+      quad(nn('auth'), nn(`${acl}mode`), nn(`${acl}Control`)),
+    ]) } as Representation);
+    await expect(reader.handle({ identifier: { path: `${identifier.path}.acl` }, credentials })).resolves.toEqual({
+      [EVERYONE]: { read: true, write: true, append: true, create: true, delete: true, control: true },
+      [AGENT]: { read: true, write: true, append: true, create: true, delete: true, control: true },
+    });
+  });
+
+  it('rejects everything on an acl resource if there are no control permissions.', async(): Promise<void> => {
+    store.getRepresentation.mockResolvedValue({ data: guardedStreamFrom([
+      quad(nn('auth'), nn(`${rdf}type`), nn(`${acl}Authorization`)),
+      quad(nn('auth'), nn(`${acl}accessTo`), nn(identifier.path)),
+      quad(nn('auth'), nn(`${acl}mode`), nn(`${acl}Read`)),
+    ]) } as Representation);
+    await expect(reader.handle({ identifier: { path: `${identifier.path}.acl` }, credentials })).resolves.toEqual({
+      [EVERYONE]: {},
+      [AGENT]: {},
     });
   });
 

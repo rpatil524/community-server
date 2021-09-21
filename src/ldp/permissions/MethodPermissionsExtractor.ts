@@ -23,7 +23,6 @@ export class MethodPermissionsExtractor extends PermissionsExtractor {
     const read = READ_METHODS.has(method);
     const write = WRITE_METHODS.has(method);
     const append = write || APPEND_METHODS.has(method);
-    const control = false;
-    return { read, write, append, control };
+    return { read, write, append, create: write, delete: write };
   }
 }

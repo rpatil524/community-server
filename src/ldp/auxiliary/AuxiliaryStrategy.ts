@@ -10,6 +10,13 @@ import type { AuxiliaryIdentifierStrategy } from './AuxiliaryIdentifierStrategy'
  */
 export interface AuxiliaryStrategy extends AuxiliaryIdentifierStrategy {
   /**
+   * Whether the permissions on the parent resource should be checked during authorization,
+   * instead of those on the auxiliary resource itself.
+   * @param identifier - Identifier of the auxiliary resource.
+   */
+  usesAssociatedAuthorization: (identifier: ResourceIdentifier) => boolean;
+
+  /**
    * Whether the root storage container requires this auxiliary resource to be present.
    * If yes, this means they can't be deleted individually from such a container.
    * @param identifier - Identifier of the auxiliary resource.

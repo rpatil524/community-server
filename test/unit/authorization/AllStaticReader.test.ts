@@ -7,7 +7,8 @@ function getPermissions(allow: boolean): Permissions {
     read: allow,
     write: allow,
     append: allow,
-    control: allow,
+    create: allow,
+    delete: allow,
   };
 }
 

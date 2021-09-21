@@ -3,6 +3,7 @@ import { Store } from 'n3';
 import type { Credentials, CredentialSet } from '../authentication/Credentials';
 import { AGENT, EVERYONE } from '../authentication/CredentialTypes';
 import type { AuxiliaryIdentifierStrategy } from '../ldp/auxiliary/AuxiliaryIdentifierStrategy';
+import type { AclPermissions } from '../ldp/permissions/AclPermissions';
 import type { Permissions, PermissionSet } from '../ldp/permissions/Permissions';
 import type { Representation } from '../ldp/representation/Representation';
 import type { ResourceIdentifier } from '../ldp/representation/ResourceIdentifier';
@@ -21,7 +22,7 @@ import type { AccessChecker } from './access-checkers/AccessChecker';
 import type { PermissionReaderInput } from './PermissionReader';
 import { PermissionReader } from './PermissionReader';
 
-const modesMap: Record<string, keyof Permissions> = {
+const modesMap: Record<string, keyof AclPermissions> = {
   [ACL.Read]: 'read',
   [ACL.Write]: 'write',
   [ACL.Append]: 'append',
@@ -49,11 +50,7 @@ export class WebAclReader extends PermissionReader {
     this.accessChecker = accessChecker;
   }
 
-  public async canHandle({ identifier, credentials }: PermissionReaderInput): Promise<void> {
-    if (this.aclStrategy.isAuxiliaryIdentifier(identifier)) {
-      throw new NotImplementedHttpError('WebAclAuthorizer does not support permissions on auxiliary resources.');
-    }
-
+  public async canHandle({ credentials }: PermissionReaderInput): Promise<void> {
     for (const [ key, value ] of Object.entries(credentials)) {
       if (value && key !== AGENT && key !== EVERYONE) {
         throw new NotImplementedHttpError(`Unsupported credentials type ${key}`);
@@ -71,17 +68,21 @@ export class WebAclReader extends PermissionReader {
     // Determine the required access modes
     this.logger.debug(`Checking permissions of ${credentials.agent?.webId} for ${identifier.path}`);
 
+    const isAcl = this.aclStrategy.isAuxiliaryIdentifier(identifier);
+    const mainIdentifier = isAcl ? this.aclStrategy.getAssociatedIdentifier(identifier) : identifier;
+
     // Determine the full authorization for the agent granted by the applicable ACL
-    const acl = await this.getAclRecursive(identifier);
-    return this.createPermissions(credentials, acl);
+    const acl = await this.getAclRecursive(mainIdentifier);
+    return this.createPermissions(credentials, acl, isAcl);
   }
 
   /**
    * Creates an Authorization object based on the quads found in the ACL.
    * @param credentials - Credentials to check permissions for.
    * @param acl - Store containing all relevant authorization triples.
+   * @param isAcl - If the target resource is an acl document.
    */
-  private async createPermissions(credentials: CredentialSet, acl: Store):
+  private async createPermissions(credentials: CredentialSet, acl: Store, isAcl: boolean):
   Promise<PermissionSet> {
     const publicPermissions = await this.determinePermissions(acl, credentials.everyone);
     const agentPermissions = await this.determinePermissions(acl, credentials.agent);
@@ -94,8 +95,8 @@ export class WebAclReader extends PermissionReader {
     }
 
     return {
-      [AGENT]: agentPermissions,
-      [EVERYONE]: publicPermissions,
+      [AGENT]: this.updateAclPermissions(agentPermissions, isAcl),
+      [EVERYONE]: this.updateAclPermissions(publicPermissions, isAcl),
     };
   }
 
@@ -106,9 +107,9 @@ export class WebAclReader extends PermissionReader {
    * @param credentials - Credentials to find the permissions for.
    */
   private async determinePermissions(acl: Store, credentials?: Credentials): Promise<Permissions> {
-    const permissions: Permissions = {};
+    const aclPermissions: AclPermissions = {};
     if (!credentials) {
-      return permissions;
+      return aclPermissions;
     }
 
     // Apply all ACL rules
@@ -120,18 +121,43 @@ export class WebAclReader extends PermissionReader {
         const modes = acl.getObjects(rule, ACL.mode, null);
         for (const { value: mode } of modes) {
           if (mode in modesMap) {
-            permissions[modesMap[mode]] = true;
+            aclPermissions[modesMap[mode]] = true;
           }
         }
       }
     }
 
-    if (permissions.write) {
+    if (aclPermissions.write) {
       // Write permission implies Append permission
-      permissions.append = true;
+      aclPermissions.append = true;
     }
 
-    return permissions;
+    return aclPermissions;
+  }
+
+  /**
+   * Sets the correct values for non-acl permissions such as create and delete.
+   * Also adds the correct values to indicate that having control permission
+   * implies having read/write/etc. on the acl resource.
+   *
+   * The main reason for keeping the control value is so we can correctly set the WAC-Allow header later.
+   */
+  private updateAclPermissions(aclPermissions: AclPermissions, isAcl: boolean): AclPermissions {
+    if (isAcl) {
+      return {
+        read: aclPermissions.control,
+        append: aclPermissions.control,
+        write: aclPermissions.control,
+        create: aclPermissions.control,
+        delete: aclPermissions.control,
+        control: aclPermissions.control,
+      };
+    }
+    return {
+      ...aclPermissions,
+      create: aclPermissions.write,
+      delete: aclPermissions.write,
+    };
   }
 
   /**

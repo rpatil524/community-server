@@ -17,7 +17,7 @@ describe('An AuthenticatedLdpHandler', (): void => {
   const preferences: RepresentationPreferences = { type: { 'text/turtle': 0.9 }};
   let operation: Operation;
   const credentials: Credentials = {};
-  const permissions: Permissions = { read: true, write: false, append: false, control: false };
+  const permissions: Permissions = { read: true, write: false, append: false };
   const permissionSet: PermissionSet = { [AGENT]: { read: true }};
   const result: ResponseDescription = new ResetResponseDescription();
   const errorResult: ResponseDescription = { statusCode: 500 };

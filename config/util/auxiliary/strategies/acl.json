@@ -15,6 +15,7 @@
         "@type": "RdfValidator",
         "converter": { "@id": "urn:solid-server:default:RepresentationConverter" }
       },
+      "associatedAuthorization": false,
       "requiredInRoot": true
     },
     {

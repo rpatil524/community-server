@@ -39,10 +39,14 @@ describe('A UnionReader', (): void => {
   });
 
   it('merges same fields using false > true > undefined.', async(): Promise<void> => {
-    readers[0].handle.mockResolvedValue({ [AGENT]: { read: true, write: false, append: undefined, control: true }});
-    readers[1].handle.mockResolvedValue({ [AGENT]: { read: false, write: true, append: true, control: true }});
+    readers[0].handle.mockResolvedValue(
+      { [AGENT]: { read: true, write: false, append: undefined, create: true, delete: undefined }},
+    );
+    readers[1].handle.mockResolvedValue(
+      { [AGENT]: { read: false, write: true, append: true, create: true, delete: undefined }},
+    );
     await expect(unionReader.handle(input)).resolves.toEqual({
-      [AGENT]: { read: false, write: false, append: true, control: true },
+      [AGENT]: { read: false, write: false, append: true, create: true },
     });
   });
 });
